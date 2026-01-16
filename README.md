@@ -90,8 +90,3 @@ graph LR
 *   **Delivery:** Gmail API / SMTP
 
 ---
-
-
-**[Twoje Imię i Nazwisko]**  
-AI Automation Architect / MarTech Specialist  
-[Twój Link do LinkedIn]
