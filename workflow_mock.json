@@ -1,0 +1,133 @@
+{
+  "name": "Enterprise_Lead_Flow_Monitor_Reference_Architecture",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        32
+      ],
+      "id": "5886b2ee-e3df-448e-a577-40fca89bd75e",
+      "name": "Weekly_Schedule_Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID_HERE",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "SHEET_NAME_HERE",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        128,
+        32
+      ],
+      "id": "815e6a89-ddcd-4ab2-ab92-52495c171e0d",
+      "name": "Fetch_Lead_Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QicbKUpf4HTXKRq9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sitesToTrack = [\n  \"Agri_Solutions_Global\", \"Industrial_Monitor_X\", \"Machinery_Digital_Portal\", \"Logistics_Express_Int\",\n  \"Forestry_Tech_Unit\", \"Construction_Heavy_Duty\", \"Wood_Energy_Hub\", \"Agriculture_Pro_Series\",\n  \"Consumer_Logistics_Sys\", \"Electric_Vehicles_B2B\", \"Farm_Contracting_Group\", \"Liquid_Tech_Systems\"\n];\n\nconst now = new Date();\nconst thresholdDays = 7;\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(now.getDate() - thresholdDays);\n\nconst latestDates = {};\nsitesToTrack.forEach(s => latestDates[s] = null);\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  const siteName = row[\"Nazwa formularza\"] || \"\"; \n  const dateStr = row[\"Data\"] || \"\";\n  const submissionDate = new Date(dateStr);\n\n  if (!isNaN(submissionDate.getTime())) {\n    sitesToTrack.forEach(s => {\n      if (siteName.toLowerCase().includes(s.toLowerCase())) {\n        if (!latestDates[s] || submissionDate > latestDates[s]) {\n          latestDates[s] = submissionDate;\n        }\n      }\n    });\n  }\n}\n\nfunction getDaysAgo(date) {\n  const d1 = new Date(now.getFullYear(), now.getMonth(), now.getDate());\n  const d2 = new Date(date.getFullYear(), date.getMonth(), date.getDate());\n  const diffDays = Math.round((d1 - d2) / (1000 * 60 * 60 * 24));\n  if (diffDays === 0) return \"today\";\n  if (diffDays === 1) return \"1 day ago\";\n  return `${diffDays} days ago`;\n}\n\nconst activeSites = [];\nconst missingSites = [];\n\nsitesToTrack.forEach(s => {\n  const lastDate = latestDates[s];\n  const formattedDate = lastDate ? lastDate.toLocaleString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : \"—\";\n  const daysAgoText = lastDate ? getDaysAgo(lastDate) : \"no records\";\n  \n  const siteObj = { name: s, lastDate: formattedDate, daysAgo: daysAgoText };\n  \n  if (lastDate && lastDate >= sevenDaysAgo) {\n    activeSites.push(siteObj);\n  } else {\n    missingSites.push(siteObj);\n  }\n});\n\nconst isAlert = missingSites.length > 0;\nconst brandColor = \"#0f172a\"; \nconst successColor = \"#10b981\"; \nconst errorColor = \"#f43f5e\"; \nconst lightMuted = \"#94a3b8\"; \nconst bgColor = \"#f8fafc\"; \n\nlet html = `...[CSS/HTML Table logic here]...`; // Optimized HTML Logic\n\nreturn {\n  subject: isAlert ? `⚠️ ALERT: ${missingSites.length} channels inactive` : \"✅ Report: Systems Operational\",\n  htmlBody: html\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        32
+      ],
+      "id": "1b1e633a-b50d-41c3-b508-478a3d6296d8",
+      "name": "Lead_Flow_Analysis_Engine"
+    },
+    {
+      "parameters": {
+        "sendTo": "ops-team@example-company.com",
+        "subject": "=Lead Pipeline Report | {{ $json.subject }}",
+        "message": "={{ $json.htmlBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        32
+      ],
+      "id": "98a19f63-7a2f-4dd8-beb7-47242a615bbd",
+      "name": "Notify_Operations_Team",
+      "webhookId": "5a8ecafe-37ba-4e28-b470-98c81dbd9bc5"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Lead_Flow_Analysis_Engine": {
+      "main": [
+        [
+          {
+            "node": "Notify_Operations_Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly_Schedule_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch_Lead_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch_Lead_Data": {
+      "main": [
+        [
+          {
+            "node": "Lead_Flow_Analysis_Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "",
+  "meta": {
+    "instanceId": "3c30a38a1c97c07e9f6cb5ea0c28f48911761f303c02c93177bb1dfcb586a2fc"
+  },
+  "id": "b23JLpYFMt3VawNFdzMnZ",
+  "tags": []
+}
